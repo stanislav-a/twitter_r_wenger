@@ -1,7 +1,8 @@
 get.stats.by.location<-function(lat = 51.5074, long = 0.1278, r = 15, 
                                 radius.measure = "mi", 
                                 n.sample = 1000,
-                                yes.tags = c("#wengerin", "#WengerStay", "#WengerStays", "#InArseneWeTrust", "#onlyonearsenewenger"),
+                                yes.tags = c("#wengerin", "#WengerStay", "#WengerStays",
+                                             "#InArseneWeTrust", "#onlyonearsenewenger"),
                                 no.tags=c("#wengerout"))
 {
   geocode <- toString(c(lat, long, paste0(r, radius.measure)))
@@ -11,13 +12,15 @@ get.stats.by.location<-function(lat = 51.5074, long = 0.1278, r = 15,
                          geocode=geocode)
   # remove truncated
   texts <- lapply(data, FUN = function(x) ifelse(x$truncated, NA, x$text))
-  trunc.percent <- length(which(is.na(texts))) / length(texts)
+  trunc<- length(which(is.na(texts)))
   texts <- texts[!is.na(texts)]
   reactions <- lapply(texts, FUN = function(x) classify.tweet(x, yes.tags, no.tags))
-  yes.percent <- length(reactions[(reactions == 1)])/length(reactions)
-  no.percent <- length(reactions[(reactions == 0)])/length(reactions)
-  neutral.percent <- length(reactions[(reactions == -1)])/length(reactions)
-  list(yes.percent, no.percent, neutral.percent)
+  yes <- length(reactions[(reactions == 1)])
+  no<- length(reactions[(reactions == 0)])
+  neutral<- length(reactions[(reactions == -1)])
+
+  data.frame('Categorie' = c("wenger.in", "wenger.out", "unclassified tweets"),
+             'Amount'= c(yes, no, neutral + trunc))
 }
 
 classify.tweet<-function(t, yes.tags, no.tags)

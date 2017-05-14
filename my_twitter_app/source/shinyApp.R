@@ -13,6 +13,23 @@ get.max.radius.by.zoom<-function(zoom, model )
   as.numeric(predict(model,data.frame(x=zoom:zoom)))
 }
 
+get.stats.centers<-function(bounds)
+{
+  map.center <- list()
+  map.center$lat <- 0.5 * (bounds$north + bounds$south)
+  map.center$lng <- 0.5 * (bounds$west + bounds$east) 
+  
+  stats.loc <- list()
+  stats.loc$center <- map.center
+  stats.loc$left <- list()
+  stats.loc$left$lat <- map.center$lat
+  stats.loc$left$lng <- (bounds$west+ map.center$lng) /2
+  stats.loc$right <- list()
+  stats.loc$right$lat <- map.center$lat
+  stats.loc$right$lng <- (bounds$east + map.center$lng) /2
+  data.frame(long = c(stats.loc$left$lng, map.center$lng, stats.loc$right$lng),
+                         lat = c(stats.loc$left$lat, map.center$lat, stats.loc$right$lat))
+}
 model <- get.model.for.zoom()
 
 ui <- bootstrapPage(
@@ -27,19 +44,18 @@ ui <- bootstrapPage(
                 checkboxInput("legend", "Show legend", TRUE)
   ),
   shiny::absolutePanel(top = 10, right = "50%",
-                       actionButton("getStats", "Get twitter stats!"),
-                       plotlyOutput("plot")
+                       actionButton("getStats", "Get twitter stats!")
   )
 )
 
 server <- function(input, output, session) {
-
-  
-  # This reactive expression represents the palette function,
-  # which changes as the user makes selections in UI.
-  colorpal <- reactive({
-    colorNumeric(input$colors, quakes$mag)
-  })
+# 
+#   
+#   # This reactive expression represents the palette function,
+#   # which changes as the user makes selections in UI.
+#   colorpal <- reactive({
+#     colorNumeric(input$colors, quakes$mag)
+#   })
   
   output$map <- renderLeaflet({
     # Use leaflet() here, and only include aspects of the map that
@@ -70,29 +86,43 @@ server <- function(input, output, session) {
     {
       leaflet::leafletProxy("map") %>%
         leaflet::clearShapes() %>%
-        leaflet::addCircles(lng = click$lng, lat = click$lat, 
+        leaflet::addCircles(lng = click$lng, lat = click$lat, layerId = "Pos",
                             radius = input$inSlider * 1000, weight = 1, color = "#777777",
                             fillOpacity = 0.7
         )
     }
   })
   
-  
-  output$scatterplot <- renderPlotly({
-
+  observeEvent(input$getStats, {
+    click <- input$map_click
+    if(is.null(click))
+      return()
+    tw.data <<- get.stats.by.location(lat = click$lat, long = click$lng, r = input$inSlider,
+                                    radius.measure = "km",
+                                    n.sample = 100)
+    bounds <- input$map_bounds#north, east, south, and west
+    stats.loc <- get.stats.centers(bounds)
+    stats.data <- cbind(stats.loc, tw.data)
+    pal <- colorFactor(c("orange", "red", "navy"), domain = stats.data$Categorie)
+    stats.data$r <- (stats.data$Amount / sum(stats.data$Amount)) * (input$inSlider * 700)
+    leaflet::leafletProxy("map") %>%
+      leaflet::clearShapes() %>%
+      #leaflet::removeShape(layerId = "Stats") %>%
+      leaflet::addCircles(lat = stats.data$lat, lng = stats.data$long,
+                          radius = stats.data$r, weight = 1, color = pal(stats.data$Categorie),
+                          fillOpacity = 0.7,popup = paste(stats.data$Categorie)
+        
+      
+            # leaflet::addCircles(layerId = "Stats",
+            #               radius = ~10^Amount/10, weight = 1, color = "#777777",
+            #               fillColor = ~Amount, fillOpacity = 0.7, popup = ~paste(Categorie)
+      )%>%
+      addMarkers(
+        lat = stats.data$lat, lng = stats.data$long,
+        label = stats.data$Categorie,
+        labelOptions = labelOptions(noHide = T, textsize = "15px")) 
+    
   })
-  # observeEvent(input$getStats, {
-  #   click <- input$map_click
-  #   if(is.null(click))
-  #     return()
-  #   data <- get.stats.by.location(lat = click$lat, long = click$lng, r = input$inSlider, 
-  #                                   radius.measure = "km", 
-  #                                   n.sample = 100)
-  #   output$plot <- plotly::plot_ly(data, labels = ~Categorie, values = ~Percent, type = 'pie') %>%
-  #     layout(title = 'Tweets with Wenger hashtags',
-  #            xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-  #            yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
-  # })
   
   observe(
     {
@@ -109,19 +139,19 @@ server <- function(input, output, session) {
     }
   )
   # Use a separate observer to recreate the legend as needed.
-  observe({
-    proxy <- leafletProxy("map", data = quakes)
-    
-    # Remove any existing legend, and only if the legend is
-    # enabled, create a new one.
-    proxy %>% clearControls()
-    if (input$legend) {
-      pal <- colorpal()
-      proxy %>% addLegend(position = "bottomright",
-                          pal = pal, values = ~mag
-      )
-    }
-  })
+  # observe({
+  #   proxy <- leafletProxy("map", data = quakes)
+  #   
+  #   # Remove any existing legend, and only if the legend is
+  #   # enabled, create a new one.
+  #   proxy %>% clearControls()
+  #   if (input$legend) {
+  #     pal <- colorpal()
+  #     proxy %>% addLegend(position = "bottomright",
+  #                         pal = pal, values = ~mag
+  #     )
+  #   }
+  # })
 }
 
 shinyApp(ui, server)

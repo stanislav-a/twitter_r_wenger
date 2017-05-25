@@ -3,6 +3,30 @@ library(leaflet)
 library(RColorBrewer)
 library(plotly)
 
+create.popup.content<-function(tw.data,
+                               yes.tags = c("#wengerin", "#WengerStay", "#WengerStays",
+                                            "#InArseneWeTrust", "#onlyonearsenewenger"),
+                               no.tags=c("#wengerout"))
+{
+  percents <- round(100 * (tw.data$Amount / sum(tw.data$Amount)), digits = 1)
+  wenger.in <- paste(sep = "<br/>",
+                      paste0("<b><a href='https://twitter.com/search?q=%23wengerin&src=typd'>",percents[1],"%</a></b>"),
+                      paste(yes.tags, collapse = ";"),
+                      paste(tw.data$Amount[1], "from", sum(tw.data$Amount), " tweets")
+  )
+  wenger.out <- paste(sep = "<br/>",
+                   paste0("<b><a href='https://twitter.com/search?q=%23wengerout&src=typd'>",percents[2],"%</a></b>"),
+                   paste(no.tags, collapse = ";"),
+                   paste(tw.data$Amount[2], "from", sum(tw.data$Amount), " tweets")
+  )
+  uncl <- paste(sep = "<br/>",
+                     paste0("<b><a href='https://twitter.com/search?q=%23wengerin%23wengerout&src=typd'>",percents[3],"%</a></b>"),
+#                     paste(no.tags, collapse = ";"),
+                     paste(tw.data$Amount[3], "from", sum(tw.data$Amount), " tweets")
+  )
+  c(wenger.in, wenger.out, uncl)
+}
+
 get.model.for.zoom<-function(x = c(1, 5, 9, 13, 17), y=c(3000, 800, 100, 15, 1))
 {
   lm(y ~ poly(x,4))
@@ -97,9 +121,10 @@ server <- function(input, output, session) {
     click <- input$map_click
     if(is.null(click))
       return()
-    tw.data <<- get.stats.by.location(lat = click$lat, long = click$lng, r = input$inSlider,
+    tw.data <- get.stats.by.location(lat = click$lat, long = click$lng, r = input$inSlider,
                                     radius.measure = "km",
                                     n.sample = 100)
+    content <- create.popup.content(tw.data)
     bounds <- input$map_bounds#north, east, south, and west
     stats.loc <- get.stats.centers(bounds)
     stats.data <- cbind(stats.loc, tw.data)
@@ -120,7 +145,10 @@ server <- function(input, output, session) {
       addMarkers(
         lat = stats.data$lat, lng = stats.data$long,
         label = stats.data$Categorie,
-        labelOptions = labelOptions(noHide = T, textsize = "15px")) 
+        labelOptions = labelOptions(noHide = T, textsize = "15px")) %>%
+      addPopups(lat = stats.data$lat, lng = stats.data$long, content,
+                options = popupOptions()
+      )
     
   })
   

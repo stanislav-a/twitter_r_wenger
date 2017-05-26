@@ -67,12 +67,18 @@ get.stats.centers<-function(bounds)
                          lat = c(stats.loc$left$lat, map.center$lat, stats.loc$right$lat))
 }
 model <- get.model.for.zoom()
+info.text<-paste(sep = "<br/>","<b>Friday, May 26, 2017</b>", "<b>Discussion on Arsene Wenger Future in Twitter</b>",
+                 paste0("<b><a href='http://www.mirror.co.uk/sport/football/news/arsenal-boss-arsene-wenger-feels-10484365'>","Arsene Contract Saga In News","</a></b>"),
+                 "contact: ctacah@gmail.com")
+
 
 ui <- bootstrapPage(
   tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
+  shinyjs::useShinyjs(),
   leaflet::leafletOutput("map", width = "100%", height = "100%"),
   shiny::absolutePanel(top = 10, right = 10,
-                uiOutput("slider")
+                       htmlOutput("text1"),
+                       uiOutput("slider")
   ),
   shiny::absolutePanel(top = 10, right = "50%",
                        actionButton("getStats", "Get twitter stats!")
@@ -81,7 +87,11 @@ ui <- bootstrapPage(
 
 server <- function(input, output, session) 
 {
+  output$text1 <- renderUI({ 
+    HTML(info.text)
+  })
   output$map <- renderLeaflet({
+    shinyjs::disable("getStats")
     # Use leaflet() here, and only include aspects of the map that
     # won't need to change dynamically (at least, not unless the
     # entire map is being torn down and recreated).
@@ -102,6 +112,7 @@ server <- function(input, output, session)
     click <- input$map_click
     if(!is.null(click))
     {
+      shinyjs::enable("getStats")
       leaflet::leafletProxy("map") %>%
         leaflet::clearShapes() %>%
         leaflet::clearPopups() %>%
@@ -116,6 +127,8 @@ server <- function(input, output, session)
   observeEvent(input$getStats, {
     click <- input$map_click
     if(is.null(click))
+      return()
+    if(click$lng > 180 || click$lng < -180)
       return()
     tw.data <- get.stats.by.location(lat = click$lat, long = click$lng, r = input$inSlider,
                                     radius.measure = "km",
@@ -146,6 +159,19 @@ server <- function(input, output, session)
       )
     
   })
+  
+  observe(
+    {
+      max.range <- 100
+      if(!is.null(input$map_zoom))
+        max.range <- round(get.max.radius.by.zoom(input$map_zoom, model ),  digits = 2)
+      output$slider <- renderUI({
+        sliderInput("inSlider", "Radius, km", min=0, 
+                    max= max.range, value = max.range * 0.5)
+      })
+    }
+  )
+ 
 }
 
 shinyApp(ui, server)

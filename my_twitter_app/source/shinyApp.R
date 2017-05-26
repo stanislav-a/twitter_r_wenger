@@ -72,27 +72,15 @@ ui <- bootstrapPage(
   tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
   leaflet::leafletOutput("map", width = "100%", height = "100%"),
   shiny::absolutePanel(top = 10, right = 10,
-                uiOutput("slider"),
-                selectInput("colors", "Color Scheme",
-                            rownames(subset(brewer.pal.info, category %in% c("seq", "div")))
-                ),
-                uiOutput("textBox"),
-                checkboxInput("legend", "Show legend", TRUE)
+                uiOutput("slider")
   ),
   shiny::absolutePanel(top = 10, right = "50%",
                        actionButton("getStats", "Get twitter stats!")
   )
 )
 
-server <- function(input, output, session) {
-# 
-#   
-#   # This reactive expression represents the palette function,
-#   # which changes as the user makes selections in UI.
-#   colorpal <- reactive({
-#     colorNumeric(input$colors, quakes$mag)
-#   })
-  
+server <- function(input, output, session) 
+{
   output$map <- renderLeaflet({
     # Use leaflet() here, and only include aspects of the map that
     # won't need to change dynamically (at least, not unless the
@@ -105,12 +93,6 @@ server <- function(input, output, session) {
     sliderInput("inSlider", "Radius, km", min=0, max=10, 
                 value=1)
   })
-  
-  output$textBox <- renderUI(
-    {mainPanel(
-      textOutput("text1")
-    )}
-  )
   
   # Incremental changes to the map (in this case, replacing the
   # circles when a new color is chosen) should be performed in
@@ -164,35 +146,6 @@ server <- function(input, output, session) {
       )
     
   })
-  
-  observe(
-    {
-      output$text1 <- renderText({ 
-        paste("You have selected", as.character(input$map_zoom))
-      })
-      max.range <- 100
-      if(!is.null(input$map_zoom))
-        max.range <- round(get.max.radius.by.zoom(input$map_zoom, model ),  digits = 2)
-      output$slider <- renderUI({
-        sliderInput("inSlider", "Radius, km", min=0, 
-                    max= max.range, value = max.range * 0.5)
-      })
-    }
-  )
-  # Use a separate observer to recreate the legend as needed.
-  # observe({
-  #   proxy <- leafletProxy("map", data = quakes)
-  #   
-  #   # Remove any existing legend, and only if the legend is
-  #   # enabled, create a new one.
-  #   proxy %>% clearControls()
-  #   if (input$legend) {
-  #     pal <- colorpal()
-  #     proxy %>% addLegend(position = "bottomright",
-  #                         pal = pal, values = ~mag
-  #     )
-  #   }
-  # })
 }
 
 shinyApp(ui, server)

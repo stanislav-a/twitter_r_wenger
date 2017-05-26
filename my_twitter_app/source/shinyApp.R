@@ -3,20 +3,32 @@ library(leaflet)
 library(RColorBrewer)
 library(plotly)
 
+split.tags.to.chunks<-function(tags, n =2)
+{
+  i = 1
+  result<-c()
+  while(i <= length(tags))
+  {
+    cur.last.el<-min((i + n - 1), length(tags))
+    result<-c(result, paste(tags[i :  cur.last.el], collapse = ";"))
+    i = cur.last.el + 1
+  }
+  paste(collapse ="<br/>", result)
+}
 create.popup.content<-function(tw.data,
-                               yes.tags = c("#wengerin", "#WengerStay", "#WengerStays",
-                                            "#InArseneWeTrust", "#onlyonearsenewenger"),
-                               no.tags=c("#wengerout"))
+                               yes.tags = c("#WengerIn", "#WengerStay", "#WengerStays",
+                                            "#InArseneWeTrust", "#OnlyOneArseneWenger"),
+                               no.tags=c("#WengerOut"))
 {
   percents <- round(100 * (tw.data$Amount / sum(tw.data$Amount)), digits = 1)
   wenger.in <- paste(sep = "<br/>",
                       paste0("<b><a href='https://twitter.com/search?q=%23wengerin&src=typd'>",percents[1],"%</a></b>"),
-                      paste(yes.tags, collapse = ";"),
+                      split.tags.to.chunks(yes.tags),
                       paste(tw.data$Amount[1], "from", sum(tw.data$Amount), " tweets")
   )
   wenger.out <- paste(sep = "<br/>",
                    paste0("<b><a href='https://twitter.com/search?q=%23wengerout&src=typd'>",percents[2],"%</a></b>"),
-                   paste(no.tags, collapse = ";"),
+                   split.tags.to.chunks(no.tags),
                    paste(tw.data$Amount[2], "from", sum(tw.data$Amount), " tweets")
   )
   uncl <- paste(sep = "<br/>",
@@ -47,10 +59,10 @@ get.stats.centers<-function(bounds)
   stats.loc$center <- map.center
   stats.loc$left <- list()
   stats.loc$left$lat <- map.center$lat
-  stats.loc$left$lng <- (bounds$west+ map.center$lng) /2
+  stats.loc$left$lng <- (bounds$west + 3 * map.center$lng) /4
   stats.loc$right <- list()
   stats.loc$right$lat <- map.center$lat
-  stats.loc$right$lng <- (bounds$east + map.center$lng) /2
+  stats.loc$right$lng <- ( bounds$east + 3 *map.center$lng) /4
   data.frame(long = c(stats.loc$left$lng, map.center$lng, stats.loc$right$lng),
                          lat = c(stats.loc$left$lat, map.center$lat, stats.loc$right$lat))
 }
@@ -129,7 +141,7 @@ server <- function(input, output, session) {
     stats.loc <- get.stats.centers(bounds)
     stats.data <- cbind(stats.loc, tw.data)
     pal <- colorFactor(c("orange", "red", "navy"), domain = stats.data$Categorie)
-    stats.data$r <- (stats.data$Amount / sum(stats.data$Amount)) * (input$inSlider * 700)
+    stats.data$r <- sqrt((stats.data$Amount / sum(stats.data$Amount))) * (input$inSlider * 700)
     leaflet::leafletProxy("map") %>%
       leaflet::clearShapes() %>%
       #leaflet::removeShape(layerId = "Stats") %>%
@@ -147,7 +159,7 @@ server <- function(input, output, session) {
         label = stats.data$Categorie,
         labelOptions = labelOptions(noHide = T, textsize = "15px")) %>%
       addPopups(lat = stats.data$lat, lng = stats.data$long, content,
-                options = popupOptions()
+                options = popupOptions(keepInView = T)
       )
     
   })

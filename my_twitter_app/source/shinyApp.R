@@ -122,6 +122,8 @@ server <- function(input, output, session) {
     {
       leaflet::leafletProxy("map") %>%
         leaflet::clearShapes() %>%
+        leaflet::clearPopups() %>%
+        leaflet::clearMarkers() %>%
         leaflet::addCircles(lng = click$lng, lat = click$lat, layerId = "Pos",
                             radius = input$inSlider * 1000, weight = 1, color = "#777777",
                             fillOpacity = 0.7
@@ -148,16 +150,15 @@ server <- function(input, output, session) {
       leaflet::addCircles(lat = stats.data$lat, lng = stats.data$long,
                           radius = stats.data$r, weight = 1, color = pal(stats.data$Categorie),
                           fillOpacity = 0.7,popup = paste(stats.data$Categorie)
-        
-      
-            # leaflet::addCircles(layerId = "Stats",
-            #               radius = ~10^Amount/10, weight = 1, color = "#777777",
-            #               fillColor = ~Amount, fillOpacity = 0.7, popup = ~paste(Categorie)
       )%>%
       addMarkers(
         lat = stats.data$lat, lng = stats.data$long,
         label = stats.data$Categorie,
         labelOptions = labelOptions(noHide = T, textsize = "15px")) %>%
+      addMarkers(
+        lat = click$lat, lng = click$lng,
+        label = paste0("Stats area"),
+        labelOptions = labelOptions(noHide = T, textsize = "24px")) %>%
       addPopups(lat = stats.data$lat, lng = stats.data$long, content,
                 options = popupOptions(keepInView = T)
       )
